@@ -26,6 +26,8 @@
 
   /* ---------- شريط علوي ---------- */
   header{
+    position:relative;      /* لازم لكي يعمل z-index */
+    z-index:50;              /* يبقى فوق الطبقة الشفافة overlay دائماً */
     display:flex;align-items:center;justify-content:space-between;
     padding:14px 26px;
   }
