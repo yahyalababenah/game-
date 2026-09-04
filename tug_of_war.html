@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>شد الحبل الرقمي</title>
+<style>
+  :root{
+    --bg:#0b1020;
+    --panel:#141c33;
+    --red:#ff4d5e;
+    --blue:#3ea1ff;
+    --gold:#ffd23f;
+    --text:#eaf0ff;
+    --muted:#7d8bb5;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(circle at 50% 20%, #1a2547 0%, var(--bg) 70%);
+    color:var(--text);
+    font-family:"Segoe UI",Tahoma,system-ui,sans-serif;
+    overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+
+  /* ---------- شريط علوي ---------- */
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 26px;
+  }
+  h1{font-size:clamp(20px,2.4vw,34px);letter-spacing:.5px}
+  .conn{display:flex;align-items:center;gap:12px}
+  .dot{width:12px;height:12px;border-radius:50%;background:#e14;box-shadow:0 0 12px #e14}
+  .dot.on{background:#2ecc71;box-shadow:0 0 12px #2ecc71}
+  button{
+    background:var(--gold);color:#111;border:0;border-radius:10px;
+    padding:10px 20px;font-size:16px;font-weight:700;cursor:pointer;
+    font-family:inherit;
+  }
+  button:hover{filter:brightness(1.1)}
+  button:disabled{opacity:.35;cursor:not-allowed}
+
+  /* ---------- لوحات اللاعبين ---------- */
+  .board{
+    flex:1;display:grid;grid-template-columns:1fr 2.4fr 1fr;
+    align-items:center;gap:20px;padding:0 30px 20px;
+  }
+  .player{
+    background:var(--panel);border-radius:22px;padding:26px 18px;
+    text-align:center;border:3px solid transparent;transition:.15s;
+  }
+  .player.p1{border-color:var(--red)}
+  .player.p2{border-color:var(--blue)}
+  .player.lead{transform:scale(1.04)}
+  .pname{font-size:clamp(20px,2vw,30px);font-weight:800;margin-bottom:6px}
+  .p1 .pname{color:var(--red)}
+  .p2 .pname{color:var(--blue)}
+  .pcount{font-size:clamp(46px,6vw,86px);font-weight:900;line-height:1;
+          font-variant-numeric:tabular-nums}
+  .plabel{color:var(--muted);font-size:15px;margin-top:8px}
+
+  /* ---------- الحلبة ---------- */
+  .arena{position:relative;height:100%;display:flex;flex-direction:column;
+         justify-content:center;gap:22px}
+  .timer{
+    text-align:center;font-size:clamp(30px,4vw,58px);font-weight:900;
+    font-variant-numeric:tabular-nums;
+  }
+  .track{
+    position:relative;height:130px;border-radius:20px;
+    background:linear-gradient(90deg,
+       rgba(255,77,94,.22) 0%, rgba(255,77,94,.05) 40%,
+       rgba(62,161,255,.05) 60%, rgba(62,161,255,.22) 100%);
+    border:2px solid #263257;overflow:hidden;
+  }
+  .center-line{
+    position:absolute;left:50%;top:0;bottom:0;width:3px;
+    background:repeating-linear-gradient(#ffffff55 0 10px, transparent 10px 20px);
+    transform:translateX(-50%);
+  }
+  .zone{position:absolute;top:0;bottom:0;width:12%;}
+  .zone.left{left:0;background:linear-gradient(90deg,var(--red),transparent);opacity:.35}
+  .zone.right{right:0;background:linear-gradient(-90deg,var(--blue),transparent);opacity:.35}
+
+  .rope{
+    position:absolute;top:50%;left:0;right:0;height:10px;
+    transform:translateY(-50%);
+    background:repeating-linear-gradient(90deg,#c9973f 0 14px,#a8762c 14px 28px);
+    border-radius:5px;
+  }
+  .knot{
+    position:absolute;top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    transition:left .06s linear;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .flag{font-size:54px;line-height:1;filter:drop-shadow(0 0 14px #ffd23fcc)}
+  .puller{
+    position:absolute;top:50%;transform:translateY(-50%);
+    font-size:64px;transition:left .06s linear,right .06s linear;
+  }
+  .marks{display:flex;justify-content:space-between;color:var(--muted);
+         font-size:14px;padding:0 6px}
+
+  /* ---------- الطبقة العلوية ---------- */
+  .overlay{
+    position:fixed;inset:0;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:18px;
+    background:rgba(6,10,22,.88);backdrop-filter:blur(4px);
+    text-align:center;padding:30px;
+  }
+  .overlay.hidden{display:none}
+  .big{font-size:clamp(50px,11vw,170px);font-weight:900;line-height:1}
+  .sub{font-size:clamp(18px,2.2vw,30px);color:var(--muted);max-width:800px}
+  .hint{font-size:15px;color:var(--muted);margin-top:10px}
+  .pulse{animation:pulse .6s ease-in-out infinite alternate}
+  @keyframes pulse{from{transform:scale(1)}to{transform:scale(1.12)}}
+  .shake{animation:shake .35s}
+  @keyframes shake{
+    0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}
+    75%{transform:translateX(9px)}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🪢 شد الحبل الرقمي</h1>
+  <div class="conn">
+    <span class="dot" id="dot"></span>
+    <span id="connText">غير متصل</span>
+    <button id="btnConnect">اتصال بالأردوينو</button>
+  </div>
+</header>
+
+<div class="board">
+  <div class="player p1" id="panel1">
+    <div class="pname">اللاعب الأول</div>
+    <div class="pcount" id="c1">0</div>
+    <div class="plabel">ضغطة</div>
+  </div>
+
+  <div class="arena">
+    <div class="timer" id="timer">20.0</div>
+    <div class="track" id="track">
+      <div class="zone left"></div>
+      <div class="zone right"></div>
+      <div class="rope"></div>
+      <div class="center-line"></div>
+      <div class="puller" id="pull1" style="left:4%">🧍</div>
+      <div class="puller" id="pull2" style="right:4%">🧍</div>
+      <div class="knot" id="knot" style="left:50%"><div class="flag">🚩</div></div>
+    </div>
+    <div class="marks"><span>خط فوز اللاعب الأول</span><span>خط فوز اللاعب الثاني</span></div>
+  </div>
+
+  <div class="player p2" id="panel2">
+    <div class="pname">اللاعب الثاني</div>
+    <div class="pcount" id="c2">0</div>
+    <div class="plabel">ضغطة</div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="big" id="ovBig">جاهز؟</div>
+  <div class="sub" id="ovSub">اضغط زر البداية على الجهاز لبدء الجولة</div>
+  <div class="hint" id="ovHint">إذا لم يظهر شيء، اضغط "اتصال بالأردوينو" أعلى الصفحة</div>
+</div>
+
+<script>
+/* ============================================================
+   يدعم طريقتين:
+   1) Web Serial  : اضغط زر "اتصال بالأردوينو" (Chrome / Edge فقط)
+   2) WebSocket   : يتصل تلقائيا بـ ws://localhost:8080 اذا شغّلت
+                    سكربت serial_bridge.js  (الطريقة الأثبت للبوث)
+   ============================================================ */
+
+const $ = id => document.getElementById(id);
+const els = {
+  dot:$('dot'), connText:$('connText'), btn:$('btnConnect'),
+  c1:$('c1'), c2:$('c2'), timer:$('timer'), knot:$('knot'),
+  pull1:$('pull1'), pull2:$('pull2'), track:$('track'),
+  panel1:$('panel1'), panel2:$('panel2'),
+  overlay:$('overlay'), ovBig:$('ovBig'), ovSub:$('ovSub'), ovHint:$('ovHint')
+};
+
+let lastState = -1;
+
+/* ---------------- استقبال البيانات ---------------- */
+
+function setConnected(ok, how){
+  els.dot.classList.toggle('on', ok);
+  els.connText.textContent = ok ? ('متصل - ' + how) : 'غير متصل';
+  els.btn.disabled = ok;
+}
+
+// --- WebSocket (عبر serial_bridge.js) ---
+function tryWebSocket(){
+  let ws;
+  try { ws = new WebSocket('ws://localhost:8080'); } catch(e){ return; }
+  ws.onopen  = () => setConnected(true, 'WebSocket');
+  ws.onclose = () => { setConnected(false); setTimeout(tryWebSocket, 2000); };
+  ws.onerror = () => {};
+  ws.onmessage = e => e.data.split('\n').forEach(handleLine);
+}
+
+// --- Web Serial (مباشر من المتصفح) ---
+els.btn.addEventListener('click', async () => {
+  if(!('serial' in navigator)){
+    alert('متصفحك لا يدعم Web Serial. استخدم Chrome أو Edge، أو شغّل serial_bridge.js');
+    return;
+  }
+  try{
+    const port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 115200 });
+    setConnected(true, 'Web Serial');
+    readLoop(port);
+  }catch(err){ console.error(err); }
+});
+
+async function readLoop(port){
+  const decoder = new TextDecoderStream();
+  port.readable.pipeTo(decoder.writable);
+  const reader = decoder.readable.getReader();
+  let buffer = '';
+  while(true){
+    const {value, done} = await reader.read();
+    if(done) break;
+    buffer += value;
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    lines.forEach(handleLine);
+  }
+  setConnected(false);
+}
+
+/* ---------------- تحليل السطر ---------------- */
+// S:2,P:-14,A:31,B:24,T:8450
+function handleLine(line){
+  line = line.trim();
+  if(!line.startsWith('S:')) return;
+  const d = {};
+  line.split(',').forEach(part => {
+    const [k,v] = part.split(':');
+    d[k] = parseInt(v, 10);
+  });
+  if(isNaN(d.S)) return;
+  render(d);
+}
+
+/* ---------------- الرسم ---------------- */
+
+function render(d){
+  els.c1.textContent = d.A;
+  els.c2.textContent = d.B;
+
+  // pos من -100 الى +100  ->  نسبة من 10% الى 90%
+  const pct = 50 + (d.P / 100) * 40;
+  els.knot.style.left  = pct + '%';
+  els.pull1.style.left  = Math.max(1, pct - 46) + '%';
+  els.pull2.style.right = Math.max(1, (100 - pct) - 46) + '%';
+
+  els.panel1.classList.toggle('lead', d.P < -4);
+  els.panel2.classList.toggle('lead', d.P >  4);
+
+  if(d.S === 2){
+    els.timer.textContent = (d.T/1000).toFixed(1);
+    els.timer.style.color = d.T < 5000 ? 'var(--gold)' : 'var(--text)';
+  }
+
+  if(d.S !== lastState) onStateChange(d);
+  lastState = d.S;
+
+  if(d.S === 1){  // العد التنازلي
+    const s = Math.ceil(d.T/1000);
+    els.ovBig.textContent = s > 0 ? s : 'ابدأ!';
+  }
+}
+
+function onStateChange(d){
+  const ov = els.overlay;
+  if(d.S === 0){                       // IDLE
+    ov.classList.remove('hidden');
+    ov.querySelector('.big').className = 'big';
+    els.ovBig.textContent = 'جاهز؟';
+    els.ovSub.textContent = 'اضغط زر البداية على الجهاز لبدء الجولة';
+    els.ovHint.style.display = '';
+    els.timer.textContent = '20.0';
+  }
+  else if(d.S === 1){                  // COUNTDOWN
+    ov.classList.remove('hidden');
+    els.ovBig.className = 'big pulse';
+    els.ovSub.textContent = 'استعدوا... لا تضغطوا بعد';
+    els.ovHint.style.display = 'none';
+  }
+  else if(d.S === 2){                  // RUNNING
+    ov.classList.add('hidden');
+  }
+  else if(d.S === 3){                  // FINISHED
+    ov.classList.remove('hidden');
+    els.ovBig.className = 'big';
+    const winner = d.P < 0 ? 1 : (d.P > 0 ? 2 : 0);
+    if(winner === 0){
+      els.ovBig.textContent = 'تعادل!';
+      els.ovSub.textContent = 'جولة أخرى؟';
+    }else{
+      els.ovBig.textContent = '🏆 فاز اللاعب ' + (winner === 1 ? 'الأول' : 'الثاني');
+      els.ovBig.style.color = winner === 1 ? 'var(--red)' : 'var(--blue)';
+      els.ovSub.textContent = d.A + ' ضغطة مقابل ' + d.B + ' ضغطة';
+    }
+    els.ovHint.style.display = 'none';
+    els.track.classList.add('shake');
+    setTimeout(()=>els.track.classList.remove('shake'), 400);
+  }
+}
+
+tryWebSocket();
+</script>
+</body>
+</html>
