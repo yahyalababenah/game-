@@ -192,7 +192,7 @@ let lastState = -1;
 function setConnected(ok, how){
   els.dot.classList.toggle('on', ok);
   els.connText.textContent = ok ? ('متصل - ' + how) : 'غير متصل';
-  els.btn.disabled = ok;
+  els.btn.disabled = false;
 }
 
 // --- WebSocket (عبر serial_bridge.js) ---
@@ -315,7 +315,9 @@ function onStateChange(d){
   }
 }
 
-tryWebSocket();
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  tryWebSocket();
+}
 </script>
 </body>
 </html>
